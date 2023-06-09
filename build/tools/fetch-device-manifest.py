@@ -225,11 +225,11 @@ def fetch_dependencies(repo_path):
 
         for dependency in dependencies:
             if not is_in_manifest(dependency['target_path']):
+                syncable_repos.append(dependency['target_path'])
                 if 'branch' not in dependency:
                     dependency['branch'] = fetch_current_branch(dependency['repository'])
-                
-                syncable_repos.append(dependency['target_path'])
                 fetch_list.append(dependency)
+               
             verify_repos.append(dependency['target_path'])
 
             if not os.path.isdir(dependency['target_path']):
