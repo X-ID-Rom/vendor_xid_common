@@ -1,3 +1,4 @@
+$(call inherit-product-if-exists, $(LOCAL_PATH)/soong_config_variables.mk)
 PATH_OVERRIDE_SOONG := $(shell echo $(TOOLS_PATH_OVERRIDE))
 
 # Add variables that we wish to make available to soong here.
@@ -15,13 +16,13 @@ EXPORT_TO_SOONG := \
 # Documentation here:
 # https://github.com/LineageOS/android_build_soong/commit/8328367c44085b948c003116c0ed74a047237a69
 
-SOONG_CONFIG_NAMESPACES += lineageVarsPlugin
+SOONG_CONFIG_NAMESPACES += xidVarsPlugin
 
-SOONG_CONFIG_lineageVarsPlugin :=
+SOONG_CONFIG_xidVarsPlugin :=
 
 define addVar
-  SOONG_CONFIG_lineageVarsPlugin += $(1)
-  SOONG_CONFIG_lineageVarsPlugin_$(1) := $$(subst ",\",$$($1))
+  SOONG_CONFIG_xidVarsPlugin += $(1)
+  SOONG_CONFIG_xidVarsPlugin_$(1) := $$(subst ",\",$$($1))
 endef
 
 $(foreach v,$(EXPORT_TO_SOONG),$(eval $(call addVar,$(v))))
