@@ -1,3 +1,4 @@
+PATH_OVERRIDE_SOONG := $(shell echo $(TOOLS_PATH_OVERRIDE))
 // LineageOS soong configs
 
 bootstrap_go_package {
@@ -21,7 +22,7 @@ xid_generator {
     name: "generated_kernel_includes",
 
     // The headers make command
-    cmd: "./out/host/linux-x86/bin/soong_build $(KERNEL_MAKE_CMD) $(KERNEL_MAKE_FLAGS) -C $(TARGET_KERNEL_SOURCE) O=$(KERNEL_BUILD_OUT_PREFIX)$(genDir) ARCH=$(KERNEL_ARCH) $(KERNEL_CROSS_COMPILE) headers_install",
+    cmd: "$(PATH_OVERRIDE_SOONG) $(KERNEL_MAKE_CMD) $(KERNEL_MAKE_FLAGS) -C $(TARGET_KERNEL_SOURCE) O=$(KERNEL_BUILD_OUT_PREFIX)$(genDir) ARCH=$(KERNEL_ARCH) $(KERNEL_CROSS_COMPILE) headers_install",
 
     // Directories that can be imported by a cc_* module generated_headers property
     export_include_dirs: [
