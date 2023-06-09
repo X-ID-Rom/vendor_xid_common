@@ -14,7 +14,7 @@
 
 $(call inherit-product, build/target/product/sdk_phone_x86.mk)
 
-include vendor/lineage/build/target/product/lineage_generic_target.mk
+include vendor/xid-common/build/target/product/lineage_generic_target.mk
 
 # Always build modules from source
 PRODUCT_MODULE_BUILD_FROM_SOURCE := true

@@ -196,7 +196,7 @@ def update_local_manifest(repo_name, repo_target, repo_revision):
         project = ElementTree.Element("project", attrib = {
             "path": repo_target,
             "remote": "github",
-            "name": "X-ID-Rom/%s" % repo_name,
+            "name": "%s" % repo_name,
             "revision": repo_revision 
         })
         lm.append(project)
@@ -249,6 +249,19 @@ def fetch_dependencies(repo_path):
     for deprepo in verify_repos:
         fetch_dependencies(deprepo)
 
+def get_from_manifest(devicename):
+    for path in glob.glob(".repo/local_manifests/roomservice_"+ devicename +".xml"):
+        try:
+            lm = ElementTree.parse(path)
+            lm = lm.getroot()
+        except:
+            lm = ElementTree.Element("manifest")
+
+        for localpath in lm.findall("project"):
+            if re.search("android_device_.*_%s$" % device, localpath.get("name")):
+                return localpath.get("path")
+
+    return None
 
 def fetch_deviceinfo(manufacturer = "unknown", codename = "unknown"):
     deviceManifestUrl = devices_repo_manifest_template + manufacturer + "/" + codename + ".xml"
