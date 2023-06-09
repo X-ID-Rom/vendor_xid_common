@@ -104,27 +104,28 @@ def indent(elem, level=0):
         if level and (not elem.tail or not elem.tail.strip()):
             elem.tail = i
 
+def has_branch(branches, revision):
+    return revision in [branch['name'] for branch in branches]
+
 def fetch_current_branch(repo_name):
     print("Default revision: %s" % git_default_revision)
     print("Checking branch info")
 
     githubreq = urllib.request.Request("https://api.github.com/repos/X-ID-Rom/" + repo_name + "/branches")
     result = json.loads(urllib.request.urlopen(githubreq).read().decode())
-    if result['name'] != git_default_revision:
-        
-        sys.exit(1)
-        return default_revision
+    if has_branch(result, git_default_revision):
+        return git_default_revision
 
     # fallbacks = [ get_default_revision_no_minor() ]
     # if os.getenv('ROOMSERVICE_BRANCHES'):
         # fallbacks += list(filter(bool, os.getenv('ROOMSERVICE_BRANCHES').split(' ')))
 
-    for fallback in fallbacks:
-        if has_branch(result, fallback):
-            print("Using fallback branch: %s" % fallback)
-            return fallback
+    # for fallback in fallbacks:
+    #     if has_branch(result, fallback):
+    #         print("Using fallback branch: %s" % fallback)
+    #         return fallback
 
-    print("Default revision %s not found in %s. Bailing." % (default_revision, repo_name))
+    print("Default revision %s not found in %s. Bailing." % (git_default_revision, repo_name))
     print("Branches found:")
     for branch in [branch['name'] for branch in result]:
         print(branch)
