@@ -53,7 +53,7 @@ function mk_timer()
     return $ret
 }
 
-function brunch()
+function compile_device()
 {
     breakfast $*
     if [ $? -eq 0 ]; then
@@ -65,7 +65,9 @@ function brunch()
     return $?
 }
 
-function breakfast()
+alias brunch=compile_device
+
+function init_device()
 {
     target=$1
     local variant=$2
@@ -83,45 +85,14 @@ function breakfast()
                 variant="userdebug"
             fi
 
-            lunch lineage_$target-$variant
+            lunch xid_$target-$variant
         fi
     fi
     return $?
 }
 
-alias bib=breakfast
-
-function eat()
-{
-    if [ "$OUT" ] ; then
-        ZIPPATH=`ls -tr "$OUT"/lineage-*.zip | tail -1`
-        if [ ! -f $ZIPPATH ] ; then
-            echo "Nothing to eat"
-            return 1
-        fi
-        echo "Waiting for device..."
-        adb wait-for-device-recovery
-        echo "Found device"
-        if (adb shell getprop ro.lineage.device | grep -q "$LINEAGE_BUILD"); then
-            echo "Rebooting to sideload for install"
-            adb reboot sideload-auto-reboot
-            adb wait-for-sideload
-            adb sideload $ZIPPATH
-        else
-            echo "The connected device does not appear to be $LINEAGE_BUILD, run away!"
-        fi
-        return $?
-    else
-        echo "Nothing to eat"
-        return 1
-    fi
-}
-
-function omnom()
-{
-    brunch $*
-    eat
-}
+alias breakfast=init_device
+alias bib=init_device
 
 function cout()
 {
@@ -132,225 +103,6 @@ function cout()
     fi
 }
 
-function dddclient()
-{
-   local OUT_ROOT=$(get_abs_build_var PRODUCT_OUT)
-   local OUT_SYMBOLS=$(get_abs_build_var TARGET_OUT_UNSTRIPPED)
-   local OUT_SO_SYMBOLS=$(get_abs_build_var TARGET_OUT_SHARED_LIBRARIES_UNSTRIPPED)
-   local OUT_VENDOR_SO_SYMBOLS=$(get_abs_build_var TARGET_OUT_VENDOR_SHARED_LIBRARIES_UNSTRIPPED)
-   local OUT_EXE_SYMBOLS=$(get_symbols_directory)
-   local PREBUILTS=$(get_abs_build_var ANDROID_PREBUILTS)
-   local ARCH=$(get_build_var TARGET_ARCH)
-   local GDB
-   case "$ARCH" in
-       arm) GDB=arm-linux-androideabi-gdb;;
-       arm64) GDB=arm-linux-androideabi-gdb; GDB64=aarch64-linux-android-gdb;;
-       mips|mips64) GDB=mips64el-linux-android-gdb;;
-       x86) GDB=x86_64-linux-android-gdb;;
-       x86_64) GDB=x86_64-linux-android-gdb;;
-       *) echo "Unknown arch $ARCH"; return 1;;
-   esac
-
-   if [ "$OUT_ROOT" -a "$PREBUILTS" ]; then
-       local EXE="$1"
-       if [ "$EXE" ] ; then
-           EXE=$1
-           if [[ $EXE =~ ^[^/].* ]] ; then
-               EXE="system/bin/"$EXE
-           fi
-       else
-           EXE="app_process"
-       fi
-
-       local PORT="$2"
-       if [ "$PORT" ] ; then
-           PORT=$2
-       else
-           PORT=":5039"
-       fi
-
-       local PID="$3"
-       if [ "$PID" ] ; then
-           if [[ ! "$PID" =~ ^[0-9]+$ ]] ; then
-               PID=`pid $3`
-               if [[ ! "$PID" =~ ^[0-9]+$ ]] ; then
-                   # that likely didn't work because of returning multiple processes
-                   # try again, filtering by root processes (don't contain colon)
-                   PID=`adb shell ps | \grep $3 | \grep -v ":" | awk '{print $2}'`
-                   if [[ ! "$PID" =~ ^[0-9]+$ ]]
-                   then
-                       echo "Couldn't resolve '$3' to single PID"
-                       return 1
-                   else
-                       echo ""
-                       echo "WARNING: multiple processes matching '$3' observed, using root process"
-                       echo ""
-                   fi
-               fi
-           fi
-           adb forward "tcp$PORT" "tcp$PORT"
-           local USE64BIT="$(is64bit $PID)"
-           adb shell gdbserver$USE64BIT $PORT --attach $PID &
-           sleep 2
-       else
-               echo ""
-               echo "If you haven't done so already, do this first on the device:"
-               echo "    gdbserver $PORT /system/bin/$EXE"
-                   echo " or"
-               echo "    gdbserver $PORT --attach <PID>"
-               echo ""
-       fi
-
-       OUT_SO_SYMBOLS=$OUT_SO_SYMBOLS$USE64BIT
-       OUT_VENDOR_SO_SYMBOLS=$OUT_VENDOR_SO_SYMBOLS$USE64BIT
-
-       echo >|"$OUT_ROOT/gdbclient.cmds" "set solib-absolute-prefix $OUT_SYMBOLS"
-       echo >>"$OUT_ROOT/gdbclient.cmds" "set solib-search-path $OUT_SO_SYMBOLS:$OUT_SO_SYMBOLS/hw:$OUT_SO_SYMBOLS/ssl/engines:$OUT_SO_SYMBOLS/drm:$OUT_SO_SYMBOLS/egl:$OUT_SO_SYMBOLS/soundfx:$OUT_VENDOR_SO_SYMBOLS:$OUT_VENDOR_SO_SYMBOLS/hw:$OUT_VENDOR_SO_SYMBOLS/egl"
-       echo >>"$OUT_ROOT/gdbclient.cmds" "source $ANDROID_BUILD_TOP/development/scripts/gdb/dalvik.gdb"
-       echo >>"$OUT_ROOT/gdbclient.cmds" "target remote $PORT"
-       # Enable special debugging for ART processes.
-       if [[ $EXE =~ (^|/)(app_process|dalvikvm)(|32|64)$ ]]; then
-          echo >> "$OUT_ROOT/gdbclient.cmds" "art-on"
-       fi
-       echo >>"$OUT_ROOT/gdbclient.cmds" ""
-
-       local WHICH_GDB=
-       # 64-bit exe found
-       if [ "$USE64BIT" != "" ] ; then
-           WHICH_GDB=$ANDROID_TOOLCHAIN/$GDB64
-       # 32-bit exe / 32-bit platform
-       elif [ "$(get_build_var TARGET_2ND_ARCH)" = "" ]; then
-           WHICH_GDB=$ANDROID_TOOLCHAIN/$GDB
-       # 32-bit exe / 64-bit platform
-       else
-           WHICH_GDB=$ANDROID_TOOLCHAIN_2ND_ARCH/$GDB
-       fi
-
-       ddd --debugger $WHICH_GDB -x "$OUT_ROOT/gdbclient.cmds" "$OUT_EXE_SYMBOLS/$EXE"
-  else
-       echo "Unable to determine build system output dir."
-   fi
-}
-
-function lineageremote()
-{
-    if ! git rev-parse --git-dir &> /dev/null
-    then
-        echo ".git directory not found. Please run this from the root directory of the Android repository you wish to set up."
-        return 1
-    fi
-    git remote rm lineage 2> /dev/null
-    local REMOTE=$(git config --get remote.github.projectname)
-    local LINEAGE="true"
-    if [ -z "$REMOTE" ]
-    then
-        REMOTE=$(git config --get remote.aosp.projectname)
-        LINEAGE="false"
-    fi
-    if [ -z "$REMOTE" ]
-    then
-        REMOTE=$(git config --get remote.clo.projectname)
-        LINEAGE="false"
-    fi
-
-    if [ $LINEAGE = "false" ]
-    then
-        local PROJECT=$(echo $REMOTE | sed -e "s#platform/#android/#g; s#/#_#g")
-        local PFX="LineageOS/"
-    else
-        local PROJECT=$REMOTE
-    fi
-
-    local LINEAGE_USER=$(git config --get review.review.lineageos.org.username)
-    if [ -z "$LINEAGE_USER" ]
-    then
-        git remote add lineage ssh://review.lineageos.org:29418/$PFX$PROJECT
-    else
-        git remote add lineage ssh://$LINEAGE_USER@review.lineageos.org:29418/$PFX$PROJECT
-    fi
-    echo "Remote 'lineage' created"
-}
-
-function aospremote()
-{
-    if ! git rev-parse --git-dir &> /dev/null
-    then
-        echo ".git directory not found. Please run this from the root directory of the Android repository you wish to set up."
-        return 1
-    fi
-    git remote rm aosp 2> /dev/null
-
-    if [ -f ".gitupstream" ]; then
-        local REMOTE=$(cat .gitupstream | cut -d ' ' -f 1)
-        git remote add aosp ${REMOTE}
-    else
-        local PROJECT=$(pwd -P | sed -e "s#$ANDROID_BUILD_TOP\/##; s#-caf.*##; s#\/default##")
-        # Google moved the repo location in Oreo
-        if [ $PROJECT = "build/make" ]
-        then
-            PROJECT="build"
-        fi
-        if (echo $PROJECT | grep -qv "^device")
-        then
-            local PFX="platform/"
-        fi
-        git remote add aosp https://android.googlesource.com/$PFX$PROJECT
-    fi
-    echo "Remote 'aosp' created"
-}
-
-function cloremote()
-{
-    if ! git rev-parse --git-dir &> /dev/null
-    then
-        echo ".git directory not found. Please run this from the root directory of the Android repository you wish to set up."
-        return 1
-    fi
-    git remote rm clo 2> /dev/null
-
-    if [ -f ".gitupstream" ]; then
-        local REMOTE=$(cat .gitupstream | cut -d ' ' -f 1)
-        git remote add clo ${REMOTE}
-    else
-        local PROJECT=$(pwd -P | sed -e "s#$ANDROID_BUILD_TOP\/##; s#-caf.*##; s#\/default##")
-        # Google moved the repo location in Oreo
-        if [ $PROJECT = "build/make" ]
-        then
-            PROJECT="build"
-        fi
-        if [[ $PROJECT =~ "qcom/opensource" ]];
-        then
-            PROJECT=$(echo $PROJECT | sed -e "s#qcom\/opensource#qcom-opensource#")
-        fi
-        if (echo $PROJECT | grep -qv "^device")
-        then
-            local PFX="platform/"
-        fi
-        git remote add clo https://git.codelinaro.org/clo/la/$PFX$PROJECT
-    fi
-    echo "Remote 'clo' created"
-}
-
-function githubremote()
-{
-    if ! git rev-parse --git-dir &> /dev/null
-    then
-        echo ".git directory not found. Please run this from the root directory of the Android repository you wish to set up."
-        return 1
-    fi
-    git remote rm github 2> /dev/null
-    local REMOTE=$(git config --get remote.aosp.projectname)
-
-    if [ -z "$REMOTE" ]
-    then
-        REMOTE=$(git config --get remote.clo.projectname)
-    fi
-
-    local PROJECT=$(echo $REMOTE | sed -e "s#platform/#android/#g; s#/#_#g")
-
-    git remote add github https://github.com/LineageOS/$PROJECT
-    echo "Remote 'github' created"
-}
 
 function installboot()
 {
@@ -761,7 +513,7 @@ function repolastsync() {
 }
 
 function reposync() {
-    repo sync -j 4 "$@"
+    repo sync -j$(nproc --all) "$@"
 }
 
 function repodiff() {
@@ -931,10 +683,6 @@ alias mmmap='dopush mmma'
 alias mkap='dopush mka'
 alias cmkap='dopush cmka'
 
-function repopick() {
-    T=$(gettop)
-    $T/vendor/lineage/build/tools/repopick.py $@
-}
 
 function sort-blobs-list() {
     T=$(gettop)
