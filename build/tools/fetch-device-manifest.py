@@ -210,7 +210,7 @@ def update_local_manifest(repo_name, repo_target, repo_revision):
         f.write(raw_xml)
         f.close()
     else: 
-        print('LineageOS/%s already fetched to %s' % (repo_name, repo_target))
+        print('X-ID-Rom/%s already fetched to %s' % (repo_name, repo_target))
 
 def fetch_dependencies(repo_path):
     print('Looking for dependencies in %s' % repo_path)
