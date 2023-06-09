@@ -226,9 +226,11 @@ def fetch_dependencies(repo_path):
         for dependency in dependencies:
             if not is_in_manifest(dependency['target_path']):
                 syncable_repos.append(dependency['target_path'])
+                fetch_list.append(dependency)
+                
                 if 'branch' not in dependency:
                     dependency['branch'] = fetch_current_branch(dependency['repository'])
-                fetch_list.append(dependency)
+
                
             verify_repos.append(dependency['target_path'])
 
@@ -240,7 +242,7 @@ def fetch_dependencies(repo_path):
         if len(fetch_list) > 0:
             print('Adding dependencies to manifest')
             for depends in fetch_list:
-                update_local_manifest(depends["repository"], dependency['target_path'], dependency['branch'])
+                update_local_manifest(depends["repository"], depends['target_path'], git_default_revision)
     else:
         print('%s has no additional dependencies.' % repo_path)
 
