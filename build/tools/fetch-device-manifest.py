@@ -196,7 +196,7 @@ def update_local_manifest(repo_name, repo_target, repo_revision):
         project = ElementTree.Element("project", attrib = {
             "path": repo_target,
             "remote": "github",
-            "name": "%s" % repo_name,
+            "name": "X-ID-Rom/%s" % repo_name,
             "revision": repo_revision 
         })
         lm.append(project)
