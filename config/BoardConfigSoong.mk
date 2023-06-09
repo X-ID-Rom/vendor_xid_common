@@ -1,4 +1,4 @@
-$(call inherit-product-if-exists, $(LOCAL_PATH)/soong_config_variables.mk)
+# $(call inherit-product-if-exists, $(LOCAL_PATH)/soong_config_variables.mk)
 PATH_OVERRIDE_SOONG := $(shell echo $(TOOLS_PATH_OVERRIDE))
 
 # Add variables that we wish to make available to soong here.
