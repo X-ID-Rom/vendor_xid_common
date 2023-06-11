@@ -55,7 +55,7 @@ function mk_timer()
 
 function compile_device()
 {
-    breakfast $*
+    init_device $*
     if [ $? -eq 0 ]; then
         mka bacon
     else
